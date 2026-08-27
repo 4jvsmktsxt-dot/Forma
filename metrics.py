@@ -1,57 +1,30 @@
 import streamlit as st
-from database import save_buyer_response
+import pandas as pd
+from database import get_buyer_responses
 
-def render_buyer_intake(property_id):
-    """Renderöi ostajan mikrokyselyn (liukusäätimet ja monivalinnat) 3D-näkymän tai chatin yhteyteen."""
-    st.markdown("### 🏡 Mikrokysely ostajalle")
-    st.caption("Auta meitä räätälöimään kokemus tarpeisiisi vetämällä liukusäätimiä tai valitsemalla vaihtoehdot.")
+def render_dynamic_metrics(property_id):
+    """Renderöi kohteen dynaamiset mittarit ja ostajakyselyn yhteenvedon."""
+    st.markdown("### 📊 Kohteen dynaamiset mittarit & Ostajadata")
+    st.caption("Reaaliaikainen analytiikka ostajien mikrokyselyistä ja kiinteistön potentiaalista.")
 
-    with st.form(key=f"buyer_intake_form_{property_id}"):
-        
-        # 1. Kiireellisyys / Muuttoaikataulu (Liukusäädin 1-10)
-        timeline_score = st.slider(
-            "Kuinka kiireellinen muutostarpeesi on?",
-            min_value=1,
-            max_value=10,
-            value=5,
-            help="1 = Haeskelen vain rauhassa yli 6 kk päästä, 10 = Pakko päästä muuttamaan heti!"
-        )
+    # Haetaan tietokannasta kyseisen kohteen ostajavastaukset
+    df_responses = get_buyer_responses(property_id)
 
-        # 2. Rahoituksen tila (Monivalinta)
-        financing_status = st.selectbox(
-            "Mikä on rahoituksesi tila tällä hetkellä?",
-            [
-                "Lainalupaus taskussa / valmiina",
-                "Pankkineuvottelut kesken",
-                "En ole vielä aloittanut prosessia"
-            ]
-        )
+    if not df_responses.empty:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            avg_timeline = df_responses["timeline_score"].mean()
+            st.metric(label="Keskimääräinen kiireellisyys", value=f"{avg_timeline:.1f} / 10")
+        with col2:
+            avg_renovation = df_responses["renovation_readiness"].mean()
+            st.metric(label="Keskimääräinen remonttialttuus", value=f"{avg_renovation:.1f} / 10")
+        with col3:
+            total_responses = len(df_responses)
+            st.metric(label="Kyselyn vastauksia", value=f"{total_responses} kpl")
 
-        # 3. Remonttialttuus / Omat toiveet (Liukusäädin 1-10)
-        renovation_readiness = st.slider(
-            "Kuinka valmis olet tekemään pinnan- tai tilamuutoksia (esim. keittiö/kylpyhuone)?",
-            min_value=1,
-            max_value=10,
-            value=5,
-            help="1 = Kaiken pitää olla heti valmista, 10 = Haluan toteuttaa täydellisen remontin omien makujen mukaan."
-        )
-
-        # 4. Suurin huoli tai pelko (Tekstikenttä tai lyhyt valinta)
-        main_concern = st.text_input(
-            "Mikä asunnossa tai taloyhtiössä eniten mietityttää?",
-            placeholder="Esim. tulevat remontit, keittiön toimivuus, sijainti..."
-        )
-
-        # Lähetä-painike
-        submit_button = st.form_submit_button(label="Tallenna tiedot ja siirry 3D/Chat-tilaan 🚀")
-
-        if submit_button:
-            save_buyer_response(
-                property_id=property_id,
-                timeline_score=timeline_score,
-                financing_status=financing_status,
-                renovation_readiness=renovation_readiness,
-                main_concern=main_concern
-            )
-            st.success("Kiitos! Tiedot tallennettu onnistuneesti järjestelmään.")
-            st.balloons()
+        st.markdown("---")
+        st.markdown("#### 💬 Viimeisimmät ostajien huolet ja kommentit:")
+        for index, row in df_responses.tail(3).iterrows():
+            st.info(f"**Asiakkaan huoli:** {row['main_concern']} *(Rahoitustila: {row['financing_status']})*")
+    else:
+        st.info("ℹ️ Ei vielä ostajavastauksia tälle kohteelle. Kun ostajat täyttävät mikrokyselyn, dynaamiset mittarit päivittyvät tähän reaaliajassa.")
