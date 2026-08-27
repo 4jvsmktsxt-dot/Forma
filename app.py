@@ -1,8 +1,15 @@
 import streamlit as st
 import pandas as pd
-from database import get_properties, add_property
+from database import get_properties, init_db
 from metrics import render_dynamic_metrics
 from buyer_intake import render_buyer_intake
+from master_dashboard import render_master_dashboard
+from agents import render_ai_agent_chat
+from pricing import render_pricing_engine_ui
+from ingest_hub import render_ingest_dashboard
+
+# Alustetaan tietokanta heti käynnistyksessä
+init_db()
 
 st.set_page_config(
     page_title="Forma - Kiinteistöresurssien hallinta",
@@ -12,20 +19,37 @@ st.set_page_config(
 
 def main():
     st.sidebar.markdown("## 🔒 Forma-kirjautuminen")
-    role = st.sidebar.selectbox("Valitse rooli", ["LKV-välittäjä", "Remonttimyyjä", "Master Dashboard"])
+    role = st.sidebar.selectbox(
+        "Valitse rooli", 
+        [
+            "LKV-välittäjä", 
+            "Remonttimyyjä", 
+            "Master Dashboard & Ingest Hub"
+        ]
+    )
     
     if "LKV-välittäjä" in role:
         st.markdown("# 🏠 LKV-välittäjän työtila")
-        st.caption("Kohteiden hallinta, dynaamiset mittarit ja ostajakyselyt.")
+        st.caption("Kohteiden hallinta, dynaamiset mittarit, hinnoittelu ja ostajakyselyt.")
         
         df_props = get_properties()
         if not df_props.empty:
             selected_prop = st.sidebar.selectbox("Valitse kohde", df_props["address"].tolist(), key="lkv_prop")
-            prop_id = df_props.loc[df_props["address"] == selected_prop, "id"].values[0]
+            matched_row = df_props.loc[df_props["address"] == selected_prop].iloc[0]
+            prop_id = matched_row["id"]
+            asking_price = matched_row["asking_price"]
 
-            render_dynamic_metrics(prop_id)
-            st.markdown("---")
-            render_buyer_intake(prop_id)
+            # Välilehdet LKV-näkymään
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 Analytiikka & Kysely", "💰 Hinnoittelu & Laskuri", "🤖 AI-Agentit", "🏡 Ostajan mikrokysely"])
+            
+            with tab1:
+                render_dynamic_metrics(prop_id)
+            with tab2:
+                render_pricing_engine_ui(asking_price)
+            with tab3:
+                render_ai_agent_chat(prop_id, user_role="LKV")
+            with tab4:
+                render_buyer_intake(prop_id)
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä. Siirry Master Dashboardiin lisäämään ensimmäinen kohde.")
 
@@ -36,28 +60,27 @@ def main():
         df_props = get_properties()
         if not df_props.empty:
             selected_prop = st.sidebar.selectbox("Valitse kohde", df_props["address"].tolist(), key="remontti_prop")
-            prop_id = df_props.loc[df_props["address"] == selected_prop, "id"].values[0]
+            matched_row = df_props.loc[df_props["address"] == selected_prop].iloc[0]
+            prop_id = matched_row["id"]
+            asking_price = matched_row["asking_price"]
 
-            render_dynamic_metrics(prop_id)
-            st.markdown("---")
-            render_buyer_intake(prop_id)
+            tab1, tab2, tab3 = st.tabs(["💰 Remontti- ja lisämyyntilaskuri", "📊 Ostajadata", "🤖 AI-Remonttiassistentti"])
+            
+            with tab1:
+                render_pricing_engine_ui(asking_price)
+            with tab2:
+                render_dynamic_metrics(prop_id)
+            with tab3:
+                render_ai_agent_chat(prop_id, user_role="Remonttimyyjä")
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä.")
 
-    elif "Master Dashboard" in role:
-        st.markdown("# 📊 Master Dashboard")
-        st.caption("Järjestelmän laaja näkymä ja hallinta.")
-        
-        st.markdown("### Lisää uusi kohde")
-        with st.form("add_prop_form"):
-            new_address = st.text_input("Kohteen osoite")
-            new_price = st.number_input("Velaton hinta (€)", min_value=0.0, step=1000.0)
-            submitted = st.form_submit_button("Tallenna kohde")
-            
-            if submitted and new_address:
-                add_property(new_address, new_price)
-                st.success(f"Kohde '{new_address}' lisätty onnistuneesti!")
-                st.rerun()
+    elif "Master Dashboard & Ingest Hub" in role:
+        # Renderöidään Master Dashboard
+        render_master_dashboard()
+        st.markdown("---")
+        # Renderöidään myös Ingest Hub (Sähköpostit ja mediatoisinnat)
+        render_ingest_dashboard()
 
 if __name__ == "__main__":
     main()
