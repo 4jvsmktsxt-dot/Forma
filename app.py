@@ -6,9 +6,9 @@ from master_dashboard import render_master_dashboard
 
 # Sivun perusasetukset
 st.set_page_config(
-page_title="Forma | Kiinteistö- ja Remonttialusta",
-page_icon="🏠",
-layout="wide"
+    page_title="Forma | Kiinteistö- ja Remonttialusta",
+    page_icon="🏠",
+    layout="wide"
 )
 
 # Alustetaan tietokanta taustalla automaattisesti
