@@ -57,17 +57,19 @@ def main():
         st.markdown("# 🔨 Remonttimyyjän työtila")
         st.caption("Ostajien remonttialttuus, liukusäädinmetriikat ja lisämyyntipaketit.")
 
-        df_props = get_properties()
-        if not df_props.empty:
-            selected_prop = st.sidebar.selectbox("Valitse kohde", df_props["address"].tolist())
-            prop_id = df_props.loc[df_props["address"] == selected_prop, "id"].values[0]
+       
 
         # Remonttimyyjälle nostetaan esiin erityisesti dynaamiset mittarit ja ostajakyselyt
+df_props = get_properties()
+    if not df_props.empty:
+        selected_prop = st.sidebar.selectbox("Valitse kohde", df_props["address"].tolist(), key="remontti_prop")
+        prop_id = df_props.loc[df_props["address"] == selected_prop, "id"].values[0]
+
+        
         render_dynamic_metrics(prop_id)
         st.markdown("---")
         render_buyer_intake(prop_id)
-        else:
-            st.warning("Ei aktiivisia kohteita järjestelmässä.")
+    else:
 
-if __name__ == "__main__":
-    main()
+        st.warning("Ei aktiivisia kohteita järjestelmässä.")
+        
