@@ -22,22 +22,20 @@ def init_db():
     """)
 
     # 2. Ostajien mikrokyselyt -taulu (Buyer Intake - Live Data)
-    # Sisältää liukusäätimet (1-10) ja rasti ruutuun -valinnat GDPR huomioiden
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS buyer_intake (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             property_id INTEGER,
-            timeline_score INTEGER,        # Kiireellisyys 1-10
-            financing_status TEXT,         # Lainalupaus / Kesken / Ei aloitettu
-            renovation_readiness INTEGER,  # Remonttialttuus 1-10
-            main_concern TEXT,             # Suurin huoli / pelko
+            timeline_score INTEGER,
+            financing_status TEXT,
+            renovation_readiness INTEGER,
+            main_concern TEXT,
             created_at TEXT,
             FOREIGN KEY (property_id) REFERENCES properties (id)
         )
     """)
 
     # 3. Anonymisoitu metadata-arkisto (Master Dashboard & Bisneksen kehitys)
-    # Tänne tallennetaan vain tilastolliset aggregaatit kun ostajadata siivotaan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS market_metadata (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
