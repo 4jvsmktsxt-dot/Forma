@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 
 def laske_terassi(pinta_ala_m2: float, toimitustapa: str = "itse") -> dict:
     """
