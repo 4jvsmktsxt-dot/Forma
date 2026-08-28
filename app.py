@@ -13,6 +13,12 @@ def main():
         st.session_state["authenticated"] = False
         st.session_state["user"] = None
 
+    if "nav_action" not in st.session_state:
+        st.session_state["nav_action"] = "Valitse olemassa oleva kohde"
+
+    if "active_property" not in st.session_state:
+        st.session_state["active_property"] = None
+
     # Sivupalkki / Kirjautuminen
     st.sidebar.title("Kirjautuminen")
     
@@ -35,6 +41,7 @@ def main():
     if st.sidebar.button("Kirjaudu ulos"):
         st.session_state["authenticated"] = False
         st.session_state["user"] = None
+        st.session_state["nav_action"] = "Valitse olemassa oleva kohde"
         st.rerun()
 
     # Kohteen valinta tai uuden luonti
@@ -43,7 +50,11 @@ def main():
     
     properties_df = get_properties(user["name"])
     
-    action = st.sidebar.radio("Toiminto", ["Valitse olemassa oleva kohde", "➕ Lisää uusi kohde"])
+    action_options = ["Valitse olemassa oleva kohde", "➕ Lisää uusi kohde"]
+    current_index = 0 if st.session_state["nav_action"] == "Valitse olemassa oleva kohde" else 1
+    
+    action = st.sidebar.radio("Toiminto", action_options, index=current_index)
+    st.session_state["nav_action"] = action
     
     if action == "➕ Lisää uusi kohde":
         st.markdown("## 🏠 Lisää uusi kohde (Asuntoilmoituksen tiedot)")
@@ -61,10 +72,18 @@ def main():
         
         if st.button("Tallenna kohde ja siirry mediaan"):
             if address:
-                # Tallennetaan tietokantaan omistajalle
-                add_property(address=address, asking_price=asking_price, property_type=huoneisto_tyyppi, owner=user["name"])
-                st.success(f"Kohde {address} lisätty onnistuneesti! Voit nyt ladata videot ja kuvat.")
-                st.rerun()
+                # Tarkistetaan duplikaatit
+                existing_addresses = [str(addr).strip().lower() for addr in properties_df["address"].tolist()] if not properties_df.empty else []
+                clean_address = address.strip().lower()
+                
+                if clean_address in existing_addresses:
+                    st.error(f"Kohde osoitteella '{address}' on jo olemassa! Valitse se olemassa olevista kohteista.")
+                else:
+                    add_property(address=address.strip(), asking_price=asking_price, property_type=huoneisto_tyyppi, owner=user["name"])
+                    st.session_state["nav_action"] = "Valitse olemassa oleva kohde"
+                    st.session_state["active_property"] = address.strip()
+                    st.success(f"Kohde {address} lisätty onnistuneesti! Siirrytään mediaan...")
+                    st.rerun()
             else:
                 st.error("Osoite on pakollinen tieto.")
         return
@@ -74,14 +93,21 @@ def main():
         st.warning("Ei vielä kohteita. Valitse vasemmalta '➕ Lisää uusi kohde'.")
         return
 
-    selected_address = st.sidebar.selectbox("Valitse kohde", properties_df["address"].tolist())
-    current_property = properties_df[properties_df["address"] == selected_address].iloc[0]
+    addresses = properties_df["address"].tolist()
     
+    default_index = 0
+    if st.session_state["active_property"] in addresses:
+        default_index = addresses.index(st.session_state["active_property"])
+
+    selected_address = st.sidebar.selectbox("Valitse kohde", addresses, index=default_index)
+    st.session_state["active_property"] = selected_address
+    
+    current_property = properties_df[properties_df["address"] == selected_address].iloc[0]
     asking_price = current_property["asking_price"]
 
     # Päänäyttö
     st.markdown(f"# 🌟 {user['name']} – Myynti- ja hallintapaneeli")
-    st.markdown(f"Tehosta myyntiä digitaalisen kaksosen, videoiden ja reaaliaikaisten työkalujen avulla.")
+    st.markdown("Tehosta myyntiä digitaalisen kaksosen, videoiden ja reaaliaikaisten työkalujen avulla.")
     
     st.info(f"Aktiivinen kohde: **{selected_address}** (Pyydetty hinta: {asking_price:,.0f} €)".replace(",", " "))
 
@@ -99,7 +125,6 @@ def main():
         st.markdown("### 🗺️ Sijainti & Alueen Palvelut")
         st.markdown(f"Kohteen osoite: {selected_address} – Nämä tiedot ovat suoraan Digitaalisen Kaksosen tukena.")
         
-        # Simuloitu karttanäkymä tai data
         map_data = pd.DataFrame({'lat': [60.1699], 'lon': [24.9384]})
         st.map(map_data, zoom=13)
 
