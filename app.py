@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from database import get_properties, init_db
+from database import get_properties, init_db, add_property  # Varmista että add_property löytyy database.py:stä
 from metrics import render_dynamic_metrics
 from buyer_intake import render_buyer_intake
 from master_dashboard import render_master_dashboard
@@ -10,7 +10,6 @@ from ingest_hub import render_ingest_dashboard
 from digital_twin import render_digital_twin_view
 from map_component import render_map_and_services
 
-# Alustetaan tietokanta heti käynnistyksessä
 init_db()
 
 st.set_page_config(
@@ -18,6 +17,22 @@ st.set_page_config(
     page_icon="🏠",
     layout="wide"
 )
+
+def render_quick_add_property():
+    """Näyttää pienen lomakkeen kohteen lisäykseen suoraan tyhjässä näkymässä."""
+    with st.expander("➕ Lisää uusi kohde järjestelmään heti"):
+        with st.form("quick_add_form"):
+            new_address = st.text_input("Kohteen osoite")
+            new_price = st.number_input("Velaton hinta / Pyyntihinta (€)", value=250000)
+            submitted = st.form_submit_button("Tallenna kohde")
+            if submitted and new_address:
+                # Tallennetaan tietokantaan (tai kutsutaan sopivaa funktiota)
+                try:
+                    add_property(new_address, new_price)
+                    st.success(f"Kohde '{new_address}' lisätty onnistuneesti! Päivitä sivu.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Virhe tallennuksessa: {e}")
 
 def main():
     st.sidebar.markdown("## 🔒 Forma-kirjautuminen")
@@ -63,7 +78,8 @@ def main():
             with tab5:
                 render_buyer_intake(prop_id)
         else:
-            st.warning("Ei aktiivisia kohteita järjestelmässä. Siirry Master Dashboardiin lisäämiseen.")
+            st.warning("Ei aktiivisia kohteita järjestelmässä.")
+            render_quick_add_property()
 
     elif "Remonttimyyjä" in role:
         st.markdown("# 🔨 Remonttimyyjän työtila")
@@ -104,6 +120,7 @@ def main():
                 render_ai_agent_chat(prop_id, user_role="Remonttimyyjä", custom_system_prompt=custom_strength)
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä.")
+            render_quick_add_property()
 
     elif "Master Dashboard & Ingest Hub" in role:
         render_master_dashboard()
@@ -112,4 +129,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
