@@ -29,6 +29,16 @@ def init_db():
             role TEXT DEFAULT 'LKV'
         )
     """)
+
+    # Ostajien vastauksien taulu mittareille
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS buyer_responses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            property_id INTEGER,
+            data TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     
     # Tarkistetaan onko käyttäjiä olemassa, jos ei, luodaan oletukset
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -63,7 +73,6 @@ def get_properties(owner=None):
     return df
 
 def authenticate_user(username, password):
-    """Tarkistaa tunnukset tietokannasta."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT username, full_name, role FROM users WHERE username = ? AND password = ?", (username.strip().lower(), password))
@@ -74,7 +83,6 @@ def authenticate_user(username, password):
     return None
 
 def add_user(username, password, full_name, role="LKV"):
-    """Lisää uuden käyttäjän tietokantaan."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     try:
@@ -90,5 +98,15 @@ def add_user(username, password, full_name, role="LKV"):
 def get_all_users():
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql_query("SELECT username, full_name, role FROM users", conn)
+    conn.close()
+    return df
+
+def get_buyer_responses(property_id):
+    """Hakee ostajien vastaukset mittareita varten."""
+    conn = sqlite3.connect(DB_NAME)
+    try:
+        df = pd.read_sql_query("SELECT * FROM buyer_responses WHERE property_id = ?", conn, params=(property_id,))
+    except Exception:
+        df = pd.DataFrame()
     conn.close()
     return df
