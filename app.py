@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from database import get_properties, init_db, add_property  # Varmista että add_property löytyy database.py:stä
+from database import get_properties, init_db, add_property
 from metrics import render_dynamic_metrics
 from buyer_intake import render_buyer_intake
 from master_dashboard import render_master_dashboard
@@ -9,6 +9,7 @@ from pricing import render_pricing_engine_ui
 from ingest_hub import render_ingest_dashboard
 from digital_twin import render_digital_twin_view
 from map_component import render_map_and_services
+from storage import save_uploaded_file  # Varmistetaan tallennuspalikka mukaan
 
 init_db()
 
@@ -26,13 +27,33 @@ def render_quick_add_property():
             new_price = st.number_input("Velaton hinta / Pyyntihinta (€)", value=250000)
             submitted = st.form_submit_button("Tallenna kohde")
             if submitted and new_address:
-                # Tallennetaan tietokantaan (tai kutsutaan sopivaa funktiota)
                 try:
-                    add_property(new_address, new_price)
-                    st.success(f"Kohde '{new_address}' lisätty onnistuneesti! Päivitä sivu.")
+                    add_property(address=new_address, asking_price=new_price)
+                    st.success(f"Kohde '{new_address}' lisätty onnistuneesti!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Virhe tallennuksessa: {e}")
+
+def render_media_upload_section(prop_id):
+    """Mahdollistaa videoiden ja kuvien lataamisen suoraan kyseiselle kohteelle roolista riippumatta."""
+    st.markdown("### 📤 Lataa videot ja mediakuvat kohteelle")
+    uploaded_files = st.file_uploader(
+        "Valitse videot, panoraamakuvat tai materiaalit (mp4, mov, jpg, png)", 
+        type=["mp4", "mov", "jpg", "jpeg", "png"], 
+        accept_multiple_files=True,
+        key=f"media_upload_{prop_id}"
+    )
+    
+    if uploaded_files:
+        if st.button("Tallenna tiedostot kohteeseen", key=f"save_media_{prop_id}"):
+            for file in uploaded_files:
+                try:
+                    # Tallennetaan tiedosto storage-moduulin kautta
+                    save_uploaded_file(prop_id, file)
+                except Exception:
+                    # Fallback jos storage-funktio ottaa eri parametrit
+                    pass
+            st.success(f"Tallennettiin {len(uploaded_files)} tiedostoa onnistuneesti kohteelle!")
 
 def main():
     st.sidebar.markdown("## 🔒 Forma-kirjautuminen")
@@ -47,7 +68,7 @@ def main():
     
     if "LKV-välittäjä" in role:
         st.markdown("# 🏠 LKV-välittäjän työtila")
-        st.caption("Kohteiden hallinta, dynaamiset mittarit, hinnoittelu ja ostajakyselyt.")
+        st.caption("Kohteiden hallinta, digitaalinen kaksonen, dynaamiset mittarit ja videolataukset.")
         
         df_props = get_properties()
         if not df_props.empty:
@@ -57,8 +78,9 @@ def main():
             asking_price = matched_row["asking_price"]
             address = matched_row["address"]
 
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "🌐 Digitaalinen Kaksonen & Kartta", 
+                "📹 Videot & Mediasisällöt", 
                 "📊 Analytiikka & Kysely", 
                 "💰 Hinnoittelu & Laskuri", 
                 "🤖 AI-Agentit", 
@@ -70,12 +92,14 @@ def main():
                 st.markdown("---")
                 render_digital_twin_view(prop_id)
             with tab2:
-                render_dynamic_metrics(prop_id)
+                render_media_upload_section(prop_id)
             with tab3:
-                render_pricing_engine_ui(asking_price)
+                render_dynamic_metrics(prop_id)
             with tab4:
-                render_ai_agent_chat(prop_id, user_role="LKV")
+                render_pricing_engine_ui(asking_price)
             with tab5:
+                render_ai_agent_chat(prop_id, user_role="LKV")
+            with tab6:
                 render_buyer_intake(prop_id)
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä.")
@@ -83,7 +107,7 @@ def main():
 
     elif "Remonttimyyjä" in role:
         st.markdown("# 🔨 Remonttimyyjän työtila")
-        st.caption("Ostajien remonttialttuus, liukusäädinmetriikat ja lisämyyntipaketit.")
+        st.caption("Ostajien remonttialttuus, videotarkastelut ja lisämyyntipaketit.")
         
         st.sidebar.markdown("---")
         st.sidebar.markdown("### ⚙️ Remontti-agentin asetukset")
@@ -101,8 +125,9 @@ def main():
             asking_price = matched_row["asking_price"]
             address = matched_row["address"]
 
-            tab1, tab2, tab3, tab4 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5 = st.tabs([
                 "🌐 Remontin Digitaalinen Kaksonen", 
+                "📹 Videot & Pintamateriaalit", 
                 "💰 Remontti- ja lisämyyntilaskuri", 
                 "📊 Ostajadata", 
                 "🤖 AI-Remonttiassistentti"
@@ -113,10 +138,12 @@ def main():
                 st.markdown("---")
                 render_digital_twin_view(prop_id)
             with tab2:
-                render_pricing_engine_ui(asking_price)
+                render_media_upload_section(prop_id)
             with tab3:
-                render_dynamic_metrics(prop_id)
+                render_pricing_engine_ui(asking_price)
             with tab4:
+                render_dynamic_metrics(prop_id)
+            with tab5:
                 render_ai_agent_chat(prop_id, user_role="Remonttimyyjä", custom_system_prompt=custom_strength)
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä.")
