@@ -30,7 +30,7 @@ def init_db():
         )
     """)
 
-    # Ostajien vastauksien taulu mittareille
+    # Ostajien vastauksien taulu mittareille ja lomakkeelle
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS buyer_responses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,3 +110,14 @@ def get_buyer_responses(property_id):
         df = pd.DataFrame()
     conn.close()
     return df
+
+def save_buyer_response(property_id, data):
+    """Tallentaa ostajan antaman vastauksen tietokantaan."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO buyer_responses (property_id, data)
+        VALUES (?, ?)
+    """, (property_id, str(data)))
+    conn.commit()
+    conn.close()
