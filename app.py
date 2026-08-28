@@ -7,6 +7,9 @@ from master_dashboard import render_master_dashboard
 from agents import render_ai_agent_chat
 from pricing import render_pricing_engine_ui
 from ingest_hub import render_ingest_dashboard
+# Uudet komponentit tuotuna mukaan:
+from digital_twin import render_digital_twin_view
+from map_component import render_map_and_services
 
 # Alustetaan tietokanta heti käynnistyksessä
 init_db()
@@ -38,17 +41,29 @@ def main():
             matched_row = df_props.loc[df_props["address"] == selected_prop].iloc[0]
             prop_id = matched_row["id"]
             asking_price = matched_row["asking_price"]
+            address = matched_row["address"]
 
-            # Välilehdet LKV-näkymään
-            tab1, tab2, tab3, tab4 = st.tabs(["📊 Analytiikka & Kysely", "💰 Hinnoittelu & Laskuri", "🤖 AI-Agentit", "🏡 Ostajan mikrokysely"])
+            # Välilehdet LKV-näkymään (lisätty Digitaalinen Kaksonen & Kartta)
+            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+                "🌐 Digitaalinen Kaksonen & Kartta", 
+                "📊 Analytiikka & Kysely", 
+                "💰 Hinnoittelu & Laskuri", 
+                "🤖 AI-Agentit", 
+                "🏡 Ostajan mikrokysely"
+            ])
             
             with tab1:
-                render_dynamic_metrics(prop_id)
+                # Digitaalinen kaksonen ja alueen karttapalvelut yhdessä paketissa
+                render_map_and_services(address)
+                st.markdown("---")
+                render_digital_twin_view(prop_id)
             with tab2:
-                render_pricing_engine_ui(asking_price)
+                render_dynamic_metrics(prop_id)
             with tab3:
-                render_ai_agent_chat(prop_id, user_role="LKV")
+                render_pricing_engine_ui(asking_price)
             with tab4:
+                render_ai_agent_chat(prop_id, user_role="LKV")
+            with tab5:
                 render_buyer_intake(prop_id)
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä. Siirry Master Dashboardiin lisäämään ensimmäinen kohde.")
@@ -63,14 +78,24 @@ def main():
             matched_row = df_props.loc[df_props["address"] == selected_prop].iloc[0]
             prop_id = matched_row["id"]
             asking_price = matched_row["asking_price"]
+            address = matched_row["address"]
 
-            tab1, tab2, tab3 = st.tabs(["💰 Remontti- ja lisämyyntilaskuri", "📊 Ostajadata", "🤖 AI-Remonttiassistentti"])
+            tab1, tab2, tab3, tab4 = st.tabs([
+                "🌐 Remontin Digitaalinen Kaksonen", 
+                "💰 Remontti- ja lisämyyntilaskuri", 
+                "📊 Ostajadata", 
+                "🤖 AI-Remonttiassistentti"
+            ])
             
             with tab1:
-                render_pricing_engine_ui(asking_price)
+                render_map_and_services(address)
+                st.markdown("---")
+                render_digital_twin_view(prop_id)
             with tab2:
-                render_dynamic_metrics(prop_id)
+                render_pricing_engine_ui(asking_price)
             with tab3:
+                render_dynamic_metrics(prop_id)
+            with tab4:
                 render_ai_agent_chat(prop_id, user_role="Remonttimyyjä")
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä.")
