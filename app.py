@@ -49,26 +49,24 @@ def main():
         st.markdown("## 🏠 Lisää uusi kohde (Asuntoilmoituksen tiedot)")
         st.markdown("Syötä kohteen perustiedot ennen median lataamista ja digitaalisen kakson luomista.")
         
-        with st.form("new_property_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                address = st.text_input("Osoite (esim. Länsitie 4 B 12)")
-                pinta_ala = st.number_input("Pinta-ala (m²)", min_value=10.0, max_value=500.0, value=65.0)
-                kunto = st.selectbox("Kunto", ["Erinomainen", "Hyvä", "Tyydyttävä", "Remontoitava"])
-            with col2:
-                asking_price = st.number_input("Hintapyyntö (€)", min_value=10000.0, max_value=10000000.0, value=250000.0, step=5000.0)
-                makuuhuoneet = st.number_input("Makuuhuoneiden lukumäärä", min_value=0, max_value=10, value=2)
-                huoneisto_tyyppi = st.text_input("Huoneistotyyppi (esim. 3h + k + s)", value="3h + k + s")
-            
-            submitted = st.form_submit_button("Tallenna kohde ja siirry mediaan")
-            if submitted:
-                if address:
-                    # Tallennetaan tietokantaan omistajalle
-                    add_property(address=address, asking_price=asking_price, property_type=huoneisto_tyyppi, owner=user["name"])
-                    st.success(f"Kohde {address} lisätty onnistuneesti! Voit nyt ladata videot ja kuvat.")
-                    st.rerun()
-                else:
-                    st.error("Osoite on pakollinen tieto.")
+        col1, col2 = st.columns(2)
+        with col1:
+            address = st.text_input("Osoite (esim. Länsitie 4 B 12)")
+            pinta_ala = st.number_input("Pinta-ala (m²)", min_value=10.0, max_value=500.0, value=65.0)
+            kunto = st.selectbox("Kunto", ["Erinomainen", "Hyvä", "Tyydyttävä", "Remontoitava"])
+        with col2:
+            asking_price = st.number_input("Hintapyyntö (€)", min_value=10000.0, max_value=10000000.0, value=250000.0, step=5000.0)
+            makuuhuoneet = st.number_input("Makuuhuoneiden lukumäärä", min_value=0, max_value=10, value=2)
+            huoneisto_tyyppi = st.text_input("Huoneistotyyppi (esim. 3h + k + s)", value="3h + k + s")
+        
+        if st.button("Tallenna kohde ja siirry mediaan"):
+            if address:
+                # Tallennetaan tietokantaan omistajalle
+                add_property(address=address, asking_price=asking_price, property_type=huoneisto_tyyppi, owner=user["name"])
+                st.success(f"Kohde {address} lisätty onnistuneesti! Voit nyt ladata videot ja kuvat.")
+                st.rerun()
+            else:
+                st.error("Osoite on pakollinen tieto.")
         return
 
     # Jos kohteita ei ole
