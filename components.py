@@ -1,6 +1,13 @@
-import streamlit.components.v1 as components
-import os
 import streamlit as st
+import streamlit.components.v1 as components
+
+def render_model_viewer(prop_id):
+    """Renderöi Street View / 3D-tilamallin ja mahdollistaa pintamateriaalien vaihdon."""
+    st.markdown("### 🌐 Interaktiivinen Digitaalinen Tila (Street View)")
+    st.info(f"Kohteen ID {prop_id}: Vapaa siirtyminen huoneesta toiseen ja lennosta tehtävät materiaalivalinnat.")
+    
+    # Kutsutaan suoraan HTML/JS-pohjaista moottoria tähän väliin
+    render_interactive_walkthrough(prop_id, f"model_url_{prop_id}")
 
 def render_interactive_walkthrough(property_id: int, model_url: str):
     """
@@ -36,13 +43,10 @@ def render_interactive_walkthrough(property_id: int, model_url: str):
         </div>
 
         <script>
-            // Tähän ladataan Three.js / WebGL logiikka, joka pyörittää 3D-kartoitusta 
-            // ja sallii kameran siirtymisen (Street View -tyylisesti) sekä materiaalipintojen päivityksen.
             console.log("Forma 3D Engine alustettu kohteelle: {model_url}");
             
             function changeMaterial(type) {{
                 alert("Materiaali vaihdettu: " + type + ". Hinnoittelulaskuri päivitetty.");
-                // Lähettää tilan tarvittaessa Streamlitille
             }}
             
             function teleportRoom(room) {{
