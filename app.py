@@ -1,179 +1,132 @@
 import streamlit as st
 import pandas as pd
-from database import get_properties, init_db, add_property, authenticate_user, add_user, get_all_users
-from metrics import render_dynamic_metrics
-from buyer_intake import render_buyer_intake
-from master_dashboard import render_master_dashboard
-from agents import render_ai_agent_chat
+from database import init_db, add_property, get_properties, authenticate_user, add_user, get_all_users
 from pricing import render_pricing_engine_ui
-from ingest_hub import render_ingest_dashboard
-from digital_twin import render_digital_twin_view
-from map_component import render_map_and_services
-from storage import save_uploaded_file
 
+# Alustetaan tietokanta
 init_db()
 
-st.set_page_config(
-    page_title="Forma - Digitaalinen LKV-hallintapaneeli",
-    page_icon="🏠",
-    layout="wide"
-)
-
-def check_login():
-    """Tarkistaa kirjautumisen tietokantaa vasten."""
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-        st.session_state["username"] = None
-        st.session_state["user_name"] = None
-        st.session_state["user_role"] = None
-
-    if not st.session_state["authenticated"]:
-        st.markdown("# 🔒 Forma - Kirjaudu sisään")
-        st.caption("Syötä käyttäjätunnus ja salasana jatkaaksesi työtilaan.")
-        
-        with st.form("login_form"):
-            username_input = st.text_input("Käyttäjätunnus")
-            password_input = st.text_input("Salasana", type="password")
-            submit_button = st.form_submit_button("Kirjaudu sisään")
-            
-            if submit_button:
-                user = authenticate_user(username_input, password_input)
-                if user:
-                    st.session_state["authenticated"] = True
-                    st.session_state["username"] = user["username"]
-                    st.session_state["user_name"] = user["name"]
-                    st.session_state["user_role"] = user["role"]
-                    st.success(f"Tervetuloa, {user['name']}!")
-                    st.rerun()
-                else:
-                    st.error("Virheellinen käyttäjätunnus tai salasana.")
-        return False
-    return True
-
-def render_user_management():
-    """Mahdollistaa uusien käyttäjien lisäämisen suoraan Master-näkymästä."""
-    st.markdown("### 👥 Käyttäjien hallinta")
-    st.caption("Lisää uusia välittäjiä tai hallitse olemassa olevia tunnuksia.")
-    
-    # Näytetään olemassa olevat käyttäjät
-    df_users = get_all_users()
-    st.dataframe(df_users, use_container_width=True)
-    
-    with st.form("add_user_form"):
-        st.markdown("#### Lisää uusi käyttäjä")
-        new_username = st.text_input("Käyttäjätunnus (esim. liisa)")
-        new_password = st.text_input("Salasana", type="password")
-        new_fullname = st.text_input("Koko nimi (esim. Liisa LKV)")
-        new_role = st.selectbox("Rooli", ["LKV", "Master"])
-        
-        submitted = st.form_submit_button("Luo käyttäjätunnus")
-        if submitted:
-            if new_username and new_password and new_fullname:
-                success = add_user(new_username, new_password, new_fullname, new_role)
-                if success:
-                    st.success(f"Käyttäjä '{new_fullname}' luotu onnistuneesti!")
-                    st.rerun()
-                else:
-                    st.error("Käyttäjätunnus on jo olemassa.")
-            else:
-                st.warning("Täytä kaikki kentät.")
-
-def render_quick_add_property(current_user_name):
-    with st.expander("➕ Lisää uusi kohde järjestelmään"):
-        with st.form(f"quick_add_form_{current_user_name}"):
-            new_address = st.text_input("Kohteen osoite")
-            prop_type = st.selectbox("Kohteen tyyppi", ["Kerrostalo", "Rivitalo", "Omakotitalo"])
-            new_price = st.number_input("Velaton hinta / Pyyntihinta (€)", value=250000)
-            submitted = st.form_submit_button("Tallenna kohde")
-            if submitted and new_address:
-                try:
-                    add_property(address=new_address, asking_price=new_price, property_type=prop_type, owner=current_user_name)
-                    st.success(f"Kohde '{new_address}' lisätty onnistuneesti!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Virhe tallennuksessa: {e}")
-
-def render_media_upload_section(prop_id):
-    st.markdown("### 📤 Raahaa ja lataa videot / mediakuvat kohteelle")
-    uploaded_files = st.file_uploader(
-        "Valitse videot (mp4, mov) tai panoraamakuvat (jpg, png)", 
-        type=["mp4", "mov", "jpg", "jpeg", "png"], 
-        accept_multiple_files=True,
-        key=f"media_upload_{prop_id}"
-    )
-    
-    if uploaded_files:
-        if st.button("Tallenna mediasisällöt", key=f"save_media_{prop_id}"):
-            for file in uploaded_files:
-                try:
-                    save_uploaded_file(prop_id, file)
-                except Exception:
-                    pass
-            st.success(f"Tallennettiin {len(uploaded_files)} tiedostoa onnistuneesti!")
+st.set_page_config(page_title="Forma - Digitaalinen Kaksonen & LKV", layout="wide")
 
 def main():
-    if not check_login():
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+        st.session_state["user"] = None
+
+    # Sivupalkki / Kirjautuminen
+    st.sidebar.title("Kirjautuminen")
+    
+    if not st.session_state["authenticated"]:
+        username = st.sidebar.text_input("Käyttäjätunnus")
+        password = st.sidebar.text_input("Salasana", type="password")
+        if st.sidebar.button("Kirjaudu sisään"):
+            user = authenticate_user(username, password)
+            if user:
+                st.session_state["authenticated"] = True
+                st.session_state["user"] = user
+                st.rerun()
+            else:
+                st.sidebar.error("Virheellinen tunnus tai salasana")
         return
 
-    st.sidebar.markdown(f"## 👤 Kirjautunut:")
-    st.sidebar.info(f"**{st.session_state['user_name']}**")
+    user = st.session_state["user"]
+    st.sidebar.success(f"Kirjautuneena: {user['name']} ({user['role']})")
     
     if st.sidebar.button("Kirjaudu ulos"):
         st.session_state["authenticated"] = False
-        st.session_state["username"] = None
+        st.session_state["user"] = None
         st.rerun()
 
-    current_user_name = st.session_state["user_name"]
-    user_role = st.session_state["user_role"]
-
-    if user_role == "LKV":
-        st.markdown(f"# 🌟 {current_user_name} - Myynti- ja hallintapaneeli")
-        st.caption("Tehosta myyntiä digitaalisen kaksosen, videoiden ja reaaliaikaisten työkalujen avulla.")
+    # Kohteen valinta tai uuden luonti
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Kohteen hallinta")
+    
+    properties_df = get_properties(user["name"])
+    
+    action = st.sidebar.radio("Toiminto", ["Valitse olemassa oleva kohde", "➕ Lisää uusi kohde"])
+    
+    if action == "➕ Lisää uusi kohde":
+        st.markdown("## 🏠 Lisää uusi kohde (Asuntoilmoituksen tiedot)")
+        st.markdown("Syötä kohteen perustiedot ennen median lataamista ja digitaalisen kakson luomista.")
         
-        df_props = get_properties(owner=current_user_name)
-        
-        if not df_props.empty:
-            selected_prop = st.sidebar.selectbox("Valitse kohde", df_props["address"].tolist(), key=f"prop_select_{current_user_name}")
-            matched_row = df_props.loc[df_props["address"] == selected_prop].iloc[0]
-            prop_id = matched_row["id"]
-            asking_price = matched_row["asking_price"]
-            address = matched_row["address"]
-
-            st.info(f"Aktiivinen kohde: **{address}** (Pyydetty hinta: {asking_price:,.0f} €)")
-
-            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-                "📹 Videot & Media (Aloita tästä)", 
-                "🌐 Digitaalinen Kaksonen & Kartta", 
-                "📊 Analytiikka & Kyselyt", 
-                "💰 Hinnoittelu & Remonttilaskuri", 
-                "🤖 AI-Asiantuntija-agentit", 
-                "🏡 Ostajan mikrokysely"
-            ])
+        with st.form("new_property_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                address = st.text_input("Osoite (esim. Länsitie 4 B 12)")
+                pinta_ala = st.number_input("Pinta-ala (m²)", min_value=10.0, max_value=500.0, value=65.0)
+                kunto = st.selectbox("Kunto", ["Erinomainen", "Hyvä", "Tyydyttävä", "Remontoitava"])
+            with col2:
+                asking_price = st.number_input("Hintapyyntö (€)", min_value=10000.0, max_value=10000000.0, value=250000.0, step=5000.0)
+                makuuhuoneet = st.number_input("Makuuhuoneiden lukumäärä", min_value=0, max_value=10, value=2)
+                huoneisto_tyyppi = st.text_input("Huoneistotyyppi (esim. 3h + k + s)", value="3h + k + s")
             
-            with tab1:
-                render_media_upload_section(prop_id)
-            with tab2:
-                render_map_and_services(address)
-                st.markdown("---")
-                render_digital_twin_view(prop_id)
-            with tab3:
-                render_dynamic_metrics(prop_id)
-            with tab4:
-                render_pricing_engine_ui(asking_price)
-            with tab5:
-                render_ai_agent_chat(prop_id, user_role=current_user_name)
-            with tab6:
-                render_buyer_intake(prop_id)
-        else:
-            st.warning(f"Ei vielä kohteita käyttäjälle {current_user_name}. Lisää ensimmäinen kohde alta:")
-            render_quick_add_property(current_user_name)
+            submitted = st.form_submit_button("Tallenna kohde ja siirry mediaan")
+            if submitted:
+                if address:
+                    # Tallennetaan tietokantaan omistajalle
+                    add_property(address=address, asking_price=asking_price, property_type=huoneisto_tyyppi, owner=user["name"])
+                    st.success(f"Kohde {address} lisätty onnistuneesti! Voit nyt ladata videot ja kuvat.")
+                    st.rerun()
+                else:
+                    st.error("Osoite on pakollinen tieto.")
+        return
 
-    elif user_role == "Master":
-        render_master_dashboard()
+    # Jos kohteita ei ole
+    if properties_df.empty:
+        st.warning("Ei vielä kohteita. Valitse vasemmalta '➕ Lisää uusi kohde'.")
+        return
+
+    selected_address = st.sidebar.selectbox("Valitse kohde", properties_df["address"].tolist())
+    current_property = properties_df[properties_df["address"] == selected_address].iloc[0]
+    
+    asking_price = current_property["asking_price"]
+
+    # Päänäyttö
+    st.markdown(f"# 🌟 {user['name']} – Myynti- ja hallintapaneeli")
+    st.markdown(f"Tehosta myyntiä digitaalisen kaksosen, videoiden ja reaaliaikaisten työkalujen avulla.")
+    
+    st.info(f"Aktiivinen kohde: **{selected_address}** (Pyydetty hinta: {asking_price:,.0f} €)".replace(",", " "))
+
+    # Välilehdet
+    tab1, tab2, tab3, tab4 = st.tabs(["🎥 Videot & Media (Aloita tästä)", "🗺️ Digitaalinen Kaksonen & Kartta", "📊 Analytiikka & Kyselyt", "💰 Hinnoittelu & Remonttilaskuri"])
+
+    with tab1:
+        st.markdown("### 📥 Rataa ja lataa videot / mediakuvat kohteelle")
+        st.markdown(f"Lataa kohteen **{selected_address}** esittelyvideot ja panoraamakuvat.")
+        uploaded_files = st.file_uploader("Valitse videot (mp4, mov) tai panoraamakuvat (jpg, png)", accept_multiple_files=True, type=["mp4", "mov", "jpg", "png"])
+        if uploaded_files:
+            st.success(f"Ladattu {len(uploaded_files)} tiedostoa onnistuneesti kohteelle {selected_address}!")
+
+    with tab2:
+        st.markdown("### 🗺️ Sijainti & Alueen Palvelut")
+        st.markdown(f"Kohteen osoite: {selected_address} – Nämä tiedot ovat suoraan Digitaalisen Kaksosen tukena.")
+        
+        # Simuloitu karttanäkymä tai data
+        map_data = pd.DataFrame({'lat': [60.1699], 'lon': [24.9384]})
+        st.map(map_data, zoom=13)
+
         st.markdown("---")
-        render_user_management()
-        st.markdown("---")
-        render_ingest_dashboard()
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            st.markdown("#### 👨‍👩‍👦 Lapsiperheet & Arki (esim. Matti)")
+            st.markdown("- **Päiväkoti:** 350 m (Turvallinen reitti)")
+            st.markdown("- **Alakoulu:** 750 m")
+            st.markdown("- **Leikkipuisto:** 200 m")
+            st.markdown("- **Lähikauppa:** 400 m")
+        with col_m2:
+            st.markdown("#### 🏃 Aktiivisuus & Vapaa-aika (esim. Anna)")
+            st.markdown("- **Ulkoilureitit / Kuntopolku:** 500 m")
+            st.markdown("- **Kuntosali:** 600 m")
+            st.markdown("- **Pyöräilyreitit:** Suora pääväylä keskustaan")
+            st.markdown("- **Rauhallinen ympäristö:** Vähäinen liikennemelu")
+
+    with tab3:
+        st.markdown("### 📊 Ostajapoolin palaute & analytiikka")
+        st.markdown("Seuraa reaaliaikaisesti kiinnostusta ja digitaalisen kaksosen katselumääriä.")
+        st.metric(label="Digitaalisen kaksosen interaktiot", value="42 kpl", delta="+12 tällä viikolla")
+
+    with tab4:
+        render_pricing_engine_ui(asking_price)
 
 if __name__ == "__main__":
     main()
