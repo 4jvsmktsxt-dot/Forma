@@ -20,6 +20,12 @@ def init_db():
         )
     """)
     
+    # Varmistetaan että owner-sarake löytyy olemassa olevasta taulusta
+    try:
+        cursor.execute("ALTER TABLE properties ADD COLUMN owner TEXT DEFAULT 'Herra Välittäjä'")
+    except sqlite3.OperationalError:
+        pass # Sarake on jo olemassa
+    
     # Käyttäjien taulu
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
