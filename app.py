@@ -62,7 +62,9 @@ def main():
         
         col1, col2 = st.columns(2)
         with col1:
-            address = st.text_input("Osoite (esim. Länsitie 4 B 12)")
+            katuosoite = st.text_input("Katuosoite (esim. Länsitie 4 B 12)")
+            postinumero = st.text_input("Postinumero (esim. 00100)")
+            kaupunki = st.text_input("Kaupunki (esim. Helsinki)")
             pinta_ala = st.number_input("Pinta-ala (m²)", min_value=10.0, max_value=500.0, value=65.0)
             kunto = st.selectbox("Kunto", ["Erinomainen", "Hyvä", "Tyydyttävä", "Remontoitava"])
         with col2:
@@ -71,21 +73,23 @@ def main():
             huoneisto_tyyppi = st.text_input("Huoneistotyyppi (esim. 3h + k + s)", value="3h + k + s")
         
         if st.button("Tallenna kohde ja siirry mediaan"):
-            if address:
+            if katuosoite and postinumero and kaupunki:
+                koko_osoite = f"{katuosoite}, {postinumero} {kaupunki}"
+                
                 # Tarkistetaan duplikaatit
                 existing_addresses = [str(addr).strip().lower() for addr in properties_df["address"].tolist()] if not properties_df.empty else []
-                clean_address = address.strip().lower()
+                clean_address = koko_osoite.strip().lower()
                 
                 if clean_address in existing_addresses:
-                    st.error(f"Kohde osoitteella '{address}' on jo olemassa! Valitse se olemassa olevista kohteista.")
+                    st.error(f"Kohde osoitteella '{koko_osoite}' on jo olemassa! Valitse se olemassa olevista kohteista.")
                 else:
-                    add_property(address=address.strip(), asking_price=asking_price, property_type=huoneisto_tyyppi, owner=user["name"])
+                    add_property(address=koko_osoite, asking_price=asking_price, property_type=huoneisto_tyyppi, owner=user["name"])
                     st.session_state["nav_action"] = "Valitse olemassa oleva kohde"
-                    st.session_state["active_property"] = address.strip()
-                    st.success(f"Kohde {address} lisätty onnistuneesti! Siirrytään mediaan...")
+                    st.session_state["active_property"] = koko_osoite
+                    st.success(f"Kohde {koko_osoite} lisätty onnistuneesti! Siirrytään mediaan...")
                     st.rerun()
             else:
-                st.error("Osoite on pakollinen tieto.")
+                st.error("Katuosoite, postinumero ja kaupunki ovat pakollisia tietoja.")
         return
 
     # Jos kohteita ei ole
