@@ -7,7 +7,6 @@ from master_dashboard import render_master_dashboard
 from agents import render_ai_agent_chat
 from pricing import render_pricing_engine_ui
 from ingest_hub import render_ingest_dashboard
-# Uudet komponentit tuotuna mukaan:
 from digital_twin import render_digital_twin_view
 from map_component import render_map_and_services
 
@@ -43,7 +42,6 @@ def main():
             asking_price = matched_row["asking_price"]
             address = matched_row["address"]
 
-            # Välilehdet LKV-näkymään (lisätty Digitaalinen Kaksonen & Kartta)
             tab1, tab2, tab3, tab4, tab5 = st.tabs([
                 "🌐 Digitaalinen Kaksonen & Kartta", 
                 "📊 Analytiikka & Kysely", 
@@ -53,7 +51,6 @@ def main():
             ])
             
             with tab1:
-                # Digitaalinen kaksonen ja alueen karttapalvelut yhdessä paketissa
                 render_map_and_services(address)
                 st.markdown("---")
                 render_digital_twin_view(prop_id)
@@ -66,12 +63,20 @@ def main():
             with tab5:
                 render_buyer_intake(prop_id)
         else:
-            st.warning("Ei aktiivisia kohteita järjestelmässä. Siirry Master Dashboardiin lisäämään ensimmäinen kohde.")
+            st.warning("Ei aktiivisia kohteita järjestelmässä. Siirry Master Dashboardiin lisäämiseen.")
 
     elif "Remonttimyyjä" in role:
         st.markdown("# 🔨 Remonttimyyjän työtila")
         st.caption("Ostajien remonttialttuus, liukusäädinmetriikat ja lisämyyntipaketit.")
         
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### ⚙️ Remontti-agentin asetukset")
+        custom_strength = st.sidebar.text_input(
+            "Syötä omat vahvuudet / prompti", 
+            value="Erikoisosaaminen: Nopea putkiremontti ja mittatilaustasot",
+            key="remot_strength_input"
+        )
+
         df_props = get_properties()
         if not df_props.empty:
             selected_prop = st.sidebar.selectbox("Valitse kohde", df_props["address"].tolist(), key="remontti_prop")
@@ -96,16 +101,15 @@ def main():
             with tab3:
                 render_dynamic_metrics(prop_id)
             with tab4:
-                render_ai_agent_chat(prop_id, user_role="Remonttimyyjä")
+                render_ai_agent_chat(prop_id, user_role="Remonttimyyjä", custom_system_prompt=custom_strength)
         else:
             st.warning("Ei aktiivisia kohteita järjestelmässä.")
 
     elif "Master Dashboard & Ingest Hub" in role:
-        # Renderöidään Master Dashboard
         render_master_dashboard()
         st.markdown("---")
-        # Renderöidään myös Ingest Hub (Sähköpostit ja mediatoisinnat)
         render_ingest_dashboard()
 
 if __name__ == "__main__":
     main()
+
