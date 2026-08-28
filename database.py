@@ -1,91 +1,94 @@
 import sqlite3
 import pandas as pd
-from datetime import datetime
 
 DB_NAME = "forma_master.db"
 
 def init_db():
-    """Alustaa tietokannan ja luo tarvittavat taulut, jos niitä ei vielä ole."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
-    # 1. Kohteet-taulu (Properties)
+    
+    # Kohteiden taulu
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS properties (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             address TEXT NOT NULL,
             property_type TEXT,
             asking_price REAL,
+            owner TEXT DEFAULT 'Herra Välittäjä',
             status TEXT DEFAULT 'Aktiivinen',
-            created_at TEXT
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-
-    # 2. Ostajien mikrokyselyt -taulu (Buyer Intake - Live Data)
+    
+    # Käyttäjien taulu
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS buyer_intake (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            property_id INTEGER,
-            timeline_score INTEGER,
-            financing_status TEXT,
-            renovation_readiness INTEGER,
-            main_concern TEXT,
-            created_at TEXT,
-            FOREIGN KEY (property_id) REFERENCES properties (id)
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            password TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            role TEXT DEFAULT 'LKV'
         )
     """)
-
-    # 3. Anonymisoitu metadata-arkisto (Master Dashboard & Bisneksen kehitys)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS market_metadata (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            property_id INTEGER,
-            avg_timeline_score REAL,
-            avg_renovation_score REAL,
-            conversion_rate REAL,
-            archived_at TEXT
-        )
-    """)
-
+    
+    # Tarkistetaan onko käyttäjiä olemassa, jos ei, luodaan oletukset
+    cursor.execute("SELECT COUNT(*) FROM users")
+    if cursor.fetchone()[0] == 0:
+        default_users = [
+            ("herra", "lkv2026", "Herra Välittäjä", "LKV"),
+            ("maija", "myyja2026", "Maija Myyjä", "LKV"),
+            ("master", "admin", "Master Dashboard", "Master")
+        ]
+        cursor.executemany("INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)", default_users)
+    
     conn.commit()
     conn.close()
 
-def add_property(address, property_type, asking_price):
-    """Lisää uuden kohteen tietokantaan."""
+def add_property(address, asking_price, property_type="Kerrostalo", owner="Herra Välittäjä"):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO properties (address, property_type, asking_price, created_at)
-        VALUES (?, ?, ?, ?)
-    """, (address, property_type, asking_price, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        INSERT INTO properties (address, property_type, asking_price, owner, status)
+        VALUES (?, ?, ?, ?, 'Aktiivinen')
+    """, (address, property_type, asking_price, owner))
     conn.commit()
     conn.close()
 
-def get_properties():
-    """Hakee kaikki kohteet."""
+def get_properties(owner=None):
     conn = sqlite3.connect(DB_NAME)
-    df = pd.read_sql_query("SELECT * FROM properties", conn)
+    if owner and owner != "Master Dashboard & Ingest Hub":
+        df = pd.read_sql_query("SELECT * FROM properties WHERE owner = ?", conn, params=(owner,))
+    else:
+        df = pd.read_sql_query("SELECT * FROM properties", conn)
     conn.close()
     return df
 
-def save_buyer_response(property_id, timeline_score, financing_status, renovation_readiness, main_concern):
-    """Tallentaa ostajan mikrokyselyn vastaukset (liukusäätimet & monivalinnat)."""
+def authenticate_user(username, password):
+    """Tarkistaa tunnukset tietokannasta."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO buyer_intake (property_id, timeline_score, financing_status, renovation_readiness, main_concern, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (property_id, timeline_score, financing_status, renovation_readiness, main_concern, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    conn.commit()
+    cursor.execute("SELECT username, full_name, role FROM users WHERE username = ? AND password = ?", (username.strip().lower(), password))
+    user = cursor.fetchone()
     conn.close()
+    if user:
+        return {"username": user[0], "name": user[1], "role": user[2]}
+    return None
 
-def get_buyer_responses(property_id):
-    """Hakee tietyn kohteen ostajavastaukset LKV:n tai remonttimyyjän näkymään."""
+def add_user(username, password, full_name, role="LKV"):
+    """Lisää uuden käyttäjän tietokantaan."""
     conn = sqlite3.connect(DB_NAME)
-    df = pd.read_sql_query("SELECT * FROM buyer_intake WHERE property_id = ?", conn, params=(property_id,))
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)", 
+                       (username.strip().lower(), password, full_name, role))
+        conn.commit()
+        success = True
+    except sqlite3.IntegrityError:
+        success = False
+    conn.close()
+    return success
+
+def get_all_users():
+    conn = sqlite3.connect(DB_NAME)
+    df = pd.read_sql_query("SELECT username, full_name, role FROM users", conn)
     conn.close()
     return df
-
-if __name__ == "__main__":
-    init_db()
-    print("Tietokanta forma_master.db alustettu onnistuneesti!")
