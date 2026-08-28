@@ -9,7 +9,7 @@ def laske_terassi(pinta_ala_m2: float, toimitustapa: str = "itse") -> dict:
     tuntia_per_m2 = 1.5
     tuntipalkka = 45.0
 
-    materiaalit_yhteensa = pinta_ala_m2 * materiaali_hinta_per_m2
+    materiaalit_yhteensä = pinta_ala_m2 * materiaali_hinta_per_m2
 
     if toimitustapa == "itse":
         return {
@@ -19,7 +19,7 @@ def laske_terassi(pinta_ala_m2: float, toimitustapa: str = "itse") -> dict:
         }
     else:  # avaimet käteen
         tyo_yhteensa = pinta_ala_m2 * tuntia_per_m2 * tuntipalkka
-        kokonaismaksu = materiaalit_yhteensa + tyo_yhteensa
+        kokonaismaksu = materiaalit_yhteensä + tyo_yhteensa
         return {
             "materiaalit": materiaalit_yhteensä,
             "tyo": tyo_yhteensa,
