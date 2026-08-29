@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import uuid
 
 DB_NAME = "forma_master.db"
 
@@ -42,6 +43,21 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             property_id INTEGER,
             data TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Kutsulinkkien ja B2B-rekisteröinnin taulu
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS invites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT UNIQUE NOT NULL,
+            email TEXT NOT NULL,
+            full_name TEXT,
+            company TEXT,
+            role TEXT DEFAULT 'LKV',
+            credits INTEGER DEFAULT 10,
+            status TEXT DEFAULT 'Pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -127,3 +143,26 @@ def save_buyer_response(property_id, data):
     """, (property_id, str(data)))
     conn.commit()
     conn.close()
+
+def create_invite(email, full_name, company, role="LKV", credits=10):
+    """Luo uuden token-pohjaisen kutsulinkin välittäjälle tai pomolle."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    token = uuid.uuid4().hex
+    cursor.execute("""
+        INSERT INTO invites (token, email, full_name, company, role, credits, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'Pending')
+    """, (token, email, full_name, company, role, credits))
+    conn.commit()
+    conn.close()
+    return token
+
+def get_recent_invites():
+    """Hakee viimeisimmät kutsut Master Dashboardia tai hallintaa varten."""
+    conn = sqlite3.connect(DB_NAME)
+    try:
+        df = pd.read_sql_query("SELECT * FROM invites ORDER BY created_at DESC LIMIT 10", conn)
+    except Exception:
+        df = pd.DataFrame()
+    conn.close()
+    return df
