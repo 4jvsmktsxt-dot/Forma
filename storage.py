@@ -2,92 +2,125 @@ import os
 import uuid
 import shutil
 import requests
-import streamlit as st
+from pathlib import Path
+from typing import Optional, Union
 
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = Path("uploads")
 
-def save_uploaded_file(uploaded_file):
+def _ensure_upload_dir():
+    """Varmistaa, että upload-kansio on olemassa."""
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+def save_uploaded_file(uploaded_file) -> str:
     """
     Tallentaa Streamlitistä tulleen tiedoston 'uploads'-kansioon.
-    Palauttaa tallennetun tiedoston polun.
+    Palauttaa tallennetun tiedoston absoluuttisen tai suhteellisen polun.
     """
-    if not os.path.exists(UPLOAD_DIR):
-        os.makedirs(UPLOAD_DIR)
-        
-    # Luodaan uniikki tiedostonimi, jotta versiot eivät ylikirjoita toisiaan
-    unique_filename = f"{uuid.uuid4().hex}_{uploaded_file.name}"
-    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+    _ensure_upload_dir()
+    
+    # Luodaan uniikki tiedostonimi versiohallintaa varten
+    original_name = getattr(uploaded_file, "name", "unknown_file")
+    unique_filename = f"{uuid.uuid4().hex}_{original_name}"
+    file_path = UPLOAD_DIR / unique_filename
     
     with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+        # Tukee sekä Streamlit UploadedFile -objektia että tavallista binääridataa
+        if hasattr(uploaded_file, "getbuffer"):
+            f.write(uploaded_file.getbuffer())
+        else:
+            f.write(uploaded_file.read())
+            
+    return str(file_path)
+
+def save_bytes_from_source(file_bytes: bytes, original_filename: str) -> str:
+    """
+    Moduuli esimerkiksi WhatsApp-botille tai ulkoiselle API:lle: 
+    Tallentaa saapuneet tavut (bytes) levylle uniikilla nimellä.
+    """
+    _ensure_upload_dir()
+    unique_filename = f"{uuid.uuid4().hex}_{original_filename}"
+    file_path = UPLOAD_DIR / unique_filename
+    
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
         
-    return file_path
+    return str(file_path)
 
-def delete_file(file_path):
-    """Poistaa tiedoston levyltä, jos se on olemassa."""
-    if os.path.exists(file_path):
-        os.remove(file_path)
+def delete_file(file_path: str):
+    """Poistaa tiedoston levyltä turvallisesti, jos se on olemassa."""
+    path = Path(file_path)
+    if path.exists():
+        path.unlink()
 
-def convert_video_to_3d(file_path):
+def convert_video_to_3d(file_path: str, api_key: Optional[str] = None) -> str:
     """
     Muuntaa WhatsAppista tai kamerasta tulleen videon/kuvan 3D (.glb) -muotoon.
-    Hyödyntää tekoälypohjaista 3D-konversiota (esim. Meshy / Tripo / Luma API).
+    Modulaarinen toteutus: helppo kytkeä tuotannon API (esim. Luma / Tripo / Meshy).
     """
-    # Esimerkki API-integraation rungosta (kytketään API-avain tarvittaessa)
-    # API_URL = "https://api.example-3d-converter.com/v1/convert"
-    # headers = {"Authorization": "Bearer OMA_API_AVAIN"}
-    # files = {'file': open(file_path, 'rb')}
-    # response = requests.post(API_URL, headers=headers, files=files)
+    print(f"[INFO] Käsitellään videota / mediaa 3D-malliksi: {file_path}")
     
-    # MVP-toteutus / Mock-simulaatio kehitystä varten:
-    print(f"Käsitellään tiedostoa 3D-malliksi: {file_path}")
-    
-    # Jos tiedosto on jo .glb, palautetaan se suoraan
     if file_path.endswith(".glb"):
         return file_path
         
-    # Simulaatiossa palautetaan tiedoston polku (tuotannossa tähän tulee API:n palauttama .glb-polku)
-    return file_path
-
-def convert_floorplan_to_3d(file_path):
-    """
-    Muuntaa 2D-pohjapiirroksen (esim. PDF tai kuva) tyhjäksi 3D-malliksi (.glb).
-    Ekstruudoi seinät automaattisesti, jotta digitaalinen kaksonen ja virtuaalinen 
-    stailaus voidaan käynnistää pelkän pohjapiirroksen pohjalta.
-    """
-    print(f"Muunnetaan 2D-pohjapiirros tyhjäksi 3D-malliksi: {file_path}")
+    # Tuotannon API-kutsujen runko (otetaan käyttöön kun API-avaimet kytketään)
+    if api_key:
+        try:
+            # Esimerkkirunko ulkoiselle AI-konversiolle:
+            # response = requests.post("https://api.example.com/v1/convert", ...)
+            pass
+        except Exception as e:
+            print(f"[ERROR] 3D-videokonversio epäonnistui: {e}")
+            
+    # MVP / Mock-palautus kehitysvaiheeseen
+    base_name = Path(file_path).stem
+    output_glb_path = UPLOAD_DIR / f"{base_name}_converted.glb"
     
-    # Tarkistetaan tiedostomuoto
-    if file_path.endswith(".glb"):
-        return file_path
-
-    # MVP / Simulaatiologiikka: Luodaan mallin polku ja varmistetaan kansio
-    if not os.path.exists(UPLOAD_DIR):
-        os.makedirs(UPLOAD_DIR)
-        
-    base_name = os.path.splitext(os.path.basename(file_path))[0]
-    output_glb_path = os.path.join(UPLOAD_DIR, f"{base_name}_empty_floorplan.glb")
-    
-    # Simulaatiossa voidaan kopioida tai merkitä tiedosto käsitellyksi
-    # Tuotannossa tähän kytketään pohjakuvan AI-ekstruusio-rajapinta
-    try:
+    # Simulaatiokopio, kunnes varsinainen AI-palvelin vastaa
+    if not output_glb_path.exists():
         shutil.copy(file_path, output_glb_path)
-    except Exception:
-        pass
         
-    return output_glb_path
+    return str(output_glb_path)
 
-def process_virtual_staging(file_path, remove_furniture=False):
+def convert_floorplan_to_3d(file_path: str, api_key: Optional[str] = None) -> str:
     """
-    Käsittelee ladatun videon tai kuvan: poistaa haluttaessa huonekalut (Virtual Staging)
-    tai valmistelee sen puhtaaksi 3D-malliksi.
+    Muuntaa 2D-pohjapiirroksen (PDF, PNG, JPG) tyhjäksi tai esitäytetyksi 3D-malliksi (.glb).
+    Ekstruudoi seinät automaattisesti digitaaliseksi kaksoseeksi.
+    """
+    print(f"[INFO] Ekstruudoidaan 2D-pohjapiirros 3D-muotoon: {file_path}")
+    
+    if file_path.endswith(".glb"):
+        return file_path
+
+    _ensure_upload_dir()
+    base_name = Path(file_path).stem
+    output_glb_path = UPLOAD_DIR / f"{base_name}_empty_floorplan.glb"
+    
+    # Laajennuspaikka varsinaiselle pohjapiirroksen AI-ekstrusiomoottorille
+    if api_key:
+        # TODO: Lisää tuleva API-kutsu tähän
+        pass
+
+    # MVP / Simulaatiologiikka
+    try:
+        if not output_glb_path.exists():
+            shutil.copy(file_path, output_glb_path)
+    except Exception as e:
+        print(f"[ERROR] Pohjapiirroksen ekstrusio epäonnistui: {e}")
+        
+    return str(output_glb_path)
+
+def process_virtual_staging(file_path: str, remove_furniture: bool = False) -> str:
+    """
+    Käsittelee ladatun kohteen: poistaa haluttaessa huonekalut (Virtual Staging)
+    tai valmistelee tilan puhtaaksi.
     """
     if remove_furniture:
-        print(f"Suoritetaan tekoälypohjainen huonekalujen poisto kohteelle: {file_path}")
-        processed_path = file_path.replace(".", "_empty.")
+        print(f"[INFO] Suoritetaan tekoälypohjainen huonekalujen poisto: {file_path}")
+        path_obj = Path(file_path)
+        processed_path = path_obj.with_name(f"{path_obj.stem}_empty{path_obj.suffix}")
         try:
             shutil.copy(file_path, processed_path)
-            return processed_path
+            return str(processed_path)
         except Exception:
             return file_path
             
